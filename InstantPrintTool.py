@@ -12,14 +12,17 @@ from PyQt5.QtCore import Qt, QSettings, QPointF, QRectF, QRect, QUrl, pyqtSignal
 from PyQt5.QtGui import QColor, QDesktopServices, QIcon
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QFileDialog
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
-from qgis.core import QgsRectangle, QgsLayoutManager, QgsPointXY as QgsPoint, Qgis, QgsProject, QgsWkbTypes, QgsLayoutExporter, PROJECT_SCALES, QgsLayoutItemMap
-from qgis.gui import QgisInterface, QgsMapTool, QgsRubberBand
+from qgis.core import QgsRectangle, QgsPointXY as QgsPoint, QgsProject, QgsWkbTypes, QgsLayoutExporter, PROJECT_SCALES, QgsLayoutItemMap
+from qgis.gui import QgsMapTool, QgsRubberBand
 import os
 from .ui.ui_printdialog import Ui_InstantPrintDialog
+
+#    tveinot 20200121 Added QgsGeometry, to end of line from qgis.core import QgsRectangle, QgsLayoutManager, QgsPointXY as QgsPoint, Qgis, QgsProject, QgsWkbTypes, QgsLayoutExporter, PROJECT_SCALES, QgsLayoutItemMap
 
 
 class InstantPrintDialog(QDialog):
 
+    hidden = pyqtSignal()
     hidden = pyqtSignal()
 
     def __init__(self, parent):
@@ -83,6 +86,30 @@ class InstantPrintTool(QgsMapTool, InstantPrintDialog):
                 if scale:
                     self.retrieve_scales(scale)
         self.check_scales()
+
+    #    tveinot 20200122 add def changeRotion... I think this is suppose to grab the new value from the spinbox when it is changed. Still fuzzy on the "def" entries
+        self.dialogui.spinbox_Rotation.valueChanged.connect(self.__changeRotation)
+
+    def __changeRotation(self):
+        if not self.mapitem:
+            return
+        self.value= None
+        if not self.dialog.isVisible():
+            return
+        activeIndex = self.dialogui.comboBox_layouts.currentIndex()
+        if activeIndex < 0:
+            return
+        layoutView = self.dialogui.comboBox_layouts.itemData(activeIndex)
+        maps = []
+        layout_name = self.dialogui.comboBox_layouts.currentText()
+        layout = self.projectLayoutManager.layoutByName(layout_name)
+        for item in layoutView.items():
+            if isinstance(item, QgsLayoutItemMap):
+                maps.append(item)
+        self.layoutView = layoutView
+        self.mapitem = layout.referenceMap()
+        self.mapitem.setMapRotation(360-self.dialogui.spinbox_Rotation.value())
+        self.rubberband.setRotation(self.dialogui.spinbox_Rotation.value())
 
     def __onDialogHidden(self):
         self.setEnabled(False)
@@ -163,7 +190,11 @@ class InstantPrintTool(QgsMapTool, InstantPrintDialog):
         self.layoutView = layoutView
         self.mapitem = layout.referenceMap()
         self.dialogui.comboBox_scale.setScale(self.mapitem.scale())
+#        self.dialogui.spinbox_Rotation.setAttribute(self.mapitem.rotation())
         self.__createRubberBand()
+        #    tveinot 20200122 set the rubberband rotation
+
+        self.pressPos = None
 
     def __createRubberBand(self):
         self.__cleanup()
@@ -174,6 +205,9 @@ class InstantPrintTool(QgsMapTool, InstantPrintDialog):
         self.mapitem.setExtent(QgsRectangle(self.rect))
         self.rubberband = QgsRubberBand(self.iface.mapCanvas(), QgsWkbTypes.PolygonGeometry)
         self.rubberband.setToCanvasRectangle(self.__canvasRect(self.rect))
+        #    tveinot 20200122 set the rubberband rotation and rotation point
+        self.rubberband.setTransformOriginPoint((0.5 * self.rect.width()),(0.5 * self.rect.height()))
+        self.rubberband.setRotation(self.dialogui.spinbox_Rotation.value())
         self.rubberband.setColor(QColor(127, 127, 255, 127))
 
         self.pressPos = None
@@ -195,6 +229,8 @@ class InstantPrintTool(QgsMapTool, InstantPrintDialog):
             self.oldrect = QRectF(self.rect)
             self.oldrubberband = QgsRubberBand(self.iface.mapCanvas(), QgsWkbTypes.PolygonGeometry)
             self.oldrubberband.setToCanvasRectangle(self.__canvasRect(self.oldrect))
+            #    tveinot 20200122 set the rubberband rotation
+            self.rubberband.setRotation(self.dialogui.spinbox_Rotation.value())
             self.oldrubberband.setColor(QColor(127, 127, 255, 31))
             self.pressPos = (e.x(), e.y())
             self.iface.mapCanvas().setCursor(Qt.ClosedHandCursor)
@@ -233,6 +269,8 @@ class InstantPrintTool(QgsMapTool, InstantPrintDialog):
             self.rect.height()
         )
         self.rubberband.setToCanvasRectangle(self.__canvasRect(self.rect))
+        self.rubberband.setTransformOriginPoint((0.5 * self.rect.width()), (0.5 * self.rect.height()))
+        self.rubberband.setRotation(self.dialogui.spinbox_Rotation.value())
 
     def canvasReleaseEvent(self, e):
         if e.button() == Qt.LeftButton and self.pressPos:
