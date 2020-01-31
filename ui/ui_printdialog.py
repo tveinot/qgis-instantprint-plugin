@@ -64,6 +64,14 @@ class Ui_InstantPrintDialog(object):
         self.horizontalLayout.addWidget(self.addScale)
         self.gridLayout.addWidget(self.widget, 1, 1, 1, 1)
 
+        # tveinot 20200122 Add the spinbox to the gui component
+        self.spinbox_Rotation = QtWidgets.QDoubleSpinBox(self.widget)
+        self.spinbox_Rotation.setRange(0, 360)
+        self.spinbox_Rotation.setEnabled(True)
+        self.spinbox_Rotation.setObjectName("spinbox_Rotation")
+        self.horizontalLayout.addWidget(self.spinbox_Rotation)
+        self.gridLayout.addWidget(self.widget, 1, 1, 1, 1)
+
         self.retranslateUi(InstantPrintDialog)
         self.buttonBox.accepted.connect(InstantPrintDialog.accept)
         self.buttonBox.rejected.connect(InstantPrintDialog.reject)
@@ -76,4 +84,4 @@ class Ui_InstantPrintDialog(object):
         self.label.setText(_translate("InstantPrintDialog", "Scale:"))
         self.label_fileformat.setText(_translate("InstantPrintDialog", "File format:"))
 
-from qgis.gui import QgsScaleComboBox
+from qgis.gui import QgsScaleComboBox, QgsDataDefinedRotationDialog
